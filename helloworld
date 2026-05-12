@@ -39,7 +39,7 @@ local Library = {
     Black = Color3.new(0, 0, 0);
 
     Font = Enum.Font.Code,
-    FontSize = 14, -- 追加: ベーステキストサイズ
+    FontSize = 13, -- 追加: ベーステキストサイズ
 
     OpenedFrames = {};
     DependencyBoxes = {};
