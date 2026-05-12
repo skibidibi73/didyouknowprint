@@ -1125,6 +1125,23 @@ do
 
         Options[Idx] = ColorPicker;
 
+        -- ToggleRegionの当たり判定を縮める処理
+        -- カラーピッカーはUIListLayoutでToggleLabelの右端に28px幅で並ぶ
+        -- 3つ付けると合計(28+4)*3=96pxほど右端に積まれ、ToggleRegion(幅170)と重なる
+        -- → カラーピッカーが増えるたびにToggleRegionを縮める
+        do
+            local parentObj = self
+            if parentObj.ToggleRegion and parentObj._ColorPickerCount ~= nil then
+                parentObj._ColorPickerCount = parentObj._ColorPickerCount + 1
+                -- 1個目:変化なし(170) / 2個目:138 / 3個目:106
+                -- 各カラーピッカーは28px + UIListLayoutのPadding 4px = 32px
+                local baseWidth = 170
+                local shrinkPerPicker = 32
+                local newWidth = baseWidth - math.max(0, parentObj._ColorPickerCount - 1) * shrinkPerPicker
+                parentObj.ToggleRegion.Size = UDim2.new(0, newWidth, 1, 0)
+            end
+        end
+
         return self;
     end;
 
@@ -2061,6 +2078,8 @@ do
             ZIndex = 8;
             Parent = ToggleOuter;
         });
+        Toggle.ToggleRegion = ToggleRegion;
+        Toggle._ColorPickerCount = 0; -- カラーピッカーが追加されるたびにカウントアップ
         Library:OnHighlight(ToggleRegion, ToggleOuter,
             { BorderColor3 = 'AccentColor' },
             { BorderColor3 = 'Black' }
@@ -2146,23 +2165,13 @@ do
 
         local Groupbox = self;
         local Container = Groupbox.Container;
-        if not Info.Compact then
-            Library:CreateLabel({
-                Size = UDim2.new(1, 0, 0, 10);
-                TextSize = Library.FontSize;
-                Text = Info.Text;
-                TextXAlignment = Enum.TextXAlignment.Left;
-                TextYAlignment = Enum.TextYAlignment.Bottom;
-                ZIndex = 5;
-                Parent = Container;
-            });
-            Groupbox:AddBlank(3);
-        end
+        -- 非Compactモードでは名前ラベルを別行で出さず、スライダー自体に埋め込む
+        -- (Compactモードは従来通りスライダー上に "名前: 値" を表示)
 
         local SliderOuter = Library:Create('Frame', {
             BackgroundColor3 = Color3.new(0, 0, 0);
             BorderColor3 = Color3.new(0, 0, 0);
-            Size = UDim2.new(1, -4, 0, 13);
+            Size = UDim2.new(1, -4, 0, Info.Compact and 13 or 18);
             ZIndex = 5;
             Parent = Container;
         });
@@ -2227,11 +2236,14 @@ do
         function Slider:Display()
             local Suffix = Info.Suffix or '';
             if Info.Compact then
+                -- Compact: 従来通り "名前: 値suffix"
                 DisplayLabel.Text = Info.Text .. ': ' .. Slider.Value .. Suffix
-            elseif Info.HideMax then
-                DisplayLabel.Text = string.format('%s', Slider.Value .. Suffix)
             else
-                DisplayLabel.Text = string.format('%s/%s', Slider.Value .. Suffix, Slider.Max .. Suffix);
+                -- 非Compact: スライダー中央に "名前:  値suffix%" 形式で表示
+                local pct = math.floor(
+                    ((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min)) * 100 + 0.5
+                )
+                DisplayLabel.Text = Info.Text .. ':  ' .. pct .. '%'
             end
 
             local X = math.ceil(Library:MapValue(Slider.Value, Slider.Min, Slider.Max, 0, Slider.MaxSize));
