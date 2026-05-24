@@ -3955,5 +3955,268 @@ if InputService.TouchEnabled then
     end
 end
 
+-- ================================================================
+-- MOBILE KEYBIND SYSTEM
+-- ================================================================
+
+-- モバイルキーバインドの位置保存テーブル
+Library.MobileKeybindPositions = {}
+Library.MobileKeybinds = {}
+
+-- 位置保存・読み込み (pcall で保護)
+local function _mkb_savePositions()
+    local ok, err = pcall(function()
+        if not writefile then return end
+        local data = {}
+        for id, btn in pairs(Library.MobileKeybinds) do
+            local pos = btn.Outer.Position
+            data[id] = { X = pos.X.Offset, Y = pos.Y.Offset }
+        end
+        writefile("linoria_mkb_positions.json", game:GetService("HttpService"):JSONEncode(data))
+    end)
+end
+
+local function _mkb_loadPositions()
+    local ok, result = pcall(function()
+        if not readfile or not isfile then return {} end
+        if not isfile("linoria_mkb_positions.json") then return {} end
+        return game:GetService("HttpService"):JSONDecode(readfile("linoria_mkb_positions.json"))
+    end)
+    return (ok and result) or {}
+end
+
+local _mkb_savedPos = _mkb_loadPositions()
+
+--[[
+    Library:CreateMobileKeybind(id, info)
+
+    id   : 一意なID文字列（位置保存のキーにもなる）
+    info : {
+        Text     : string  -- ボタンに表示するラベル
+        Default  : bool    -- 初期状態 (default: false)
+        Callback : function(state: bool) -- トグル時に呼ばれる
+    }
+
+    返り値: MobileKeybind オブジェクト
+        :GetState()    -> bool
+        :SetState(bool)
+        :Destroy()
+        .OnChanged(fn) -> fn(state) を登録
+]]
+function Library:CreateMobileKeybind(id, info)
+    assert(type(id) == 'string', 'CreateMobileKeybind: id must be a string')
+    info = info or {}
+
+    local text     = info.Text     or id
+    local defState = info.Default  or false
+    local callback = info.Callback or function() end
+
+    -- GUI 親を決定
+    local guiParent
+    local existingMobileGui = CoreGui:FindFirstChild("LinoriaMobileUI")
+    if existingMobileGui then
+        guiParent = existingMobileGui
+    else
+        local mg = Instance.new("ScreenGui")
+        mg.Name = "LinoriaMobileUI"
+        mg.ZIndexBehavior = Enum.ZIndexBehavior.Global
+        ProtectGui(mg)
+        mg.Parent = CoreGui
+        guiParent = mg
+    end
+
+    -- 初期位置（保存済みがあればそちらを優先）
+    local savedPos = _mkb_savedPos[id]
+    local initPos
+    if savedPos then
+        initPos = UDim2.new(0, savedPos.X, 0, savedPos.Y)
+    else
+        -- 既存ボタンが何個あるか数えて縦にずらす
+        local count = 0
+        for _ in pairs(Library.MobileKeybinds) do count = count + 1 end
+        initPos = UDim2.new(1, -100, 0, 10 + count * 44)
+    end
+
+    local BTN_W, BTN_H = 88, 30
+
+    -- ====== 既存モバイルボタンと同一デザイン ======
+    local Outer = Library:Create('Frame', {
+        Name             = "MKB_" .. id .. "_Outer",
+        BackgroundColor3 = Library.OutlineColor,
+        BorderSizePixel  = 0,
+        Position         = initPos,
+        Size             = UDim2.new(0, BTN_W, 0, BTN_H),
+        ZIndex           = 300,
+        Parent           = guiParent,
+        Active           = true,
+    })
+    Library:AddToRegistry(Outer, { BackgroundColor3 = 'OutlineColor' })
+
+    local AccentFrame = Library:Create('Frame', {
+        Name             = "MKB_" .. id .. "_Accent",
+        BackgroundColor3 = Library.AccentColor,
+        BorderSizePixel  = 0,
+        Position         = UDim2.new(0, 1, 0, 1),
+        Size             = UDim2.new(1, -2, 1, -2),
+        ZIndex           = 301,
+        Parent           = Outer,
+    })
+    Library:AddToRegistry(AccentFrame, { BackgroundColor3 = 'AccentColor' })
+
+    local Inner = Library:Create('Frame', {
+        Name             = "MKB_" .. id .. "_Inner",
+        BackgroundColor3 = Color3.fromRGB(8, 8, 12),
+        BorderSizePixel  = 0,
+        Position         = UDim2.new(0, 1, 0, 1),
+        Size             = UDim2.new(1, -2, 1, -2),
+        ZIndex           = 302,
+        Parent           = AccentFrame,
+    })
+
+    local GradientOverlay = Library:Create('Frame', {
+        Name             = "MKB_" .. id .. "_Gradient",
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel  = 0,
+        Size             = UDim2.new(1, 0, 1, 0),
+        ZIndex           = 303,
+        Parent           = Inner,
+    })
+    Library:Create('UIGradient', {
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0.90),
+            NumberSequenceKeypoint.new(1, 1.0),
+        }),
+        Rotation = 90,
+        Parent   = GradientOverlay,
+    })
+
+    local Btn = Library:Create('TextButton', {
+        Name                   = "MKB_" .. id .. "_Btn",
+        BackgroundTransparency = 1,
+        Size                   = UDim2.new(1, 0, 1, 0),
+        Font                   = Enum.Font.Code,
+        Text                   = text,
+        TextColor3             = Color3.fromRGB(255, 255, 255),
+        TextSize               = Library.FontSize - 1,
+        ZIndex                 = 304,
+        Parent                 = Inner,
+        Active                 = true,
+    })
+
+    -- ====== オブジェクト ======
+    local MKB = {
+        Id       = id,
+        State    = defState,
+        Text     = text,
+        Outer    = Outer,
+        Btn      = Btn,
+        Changed  = nil,
+    }
+    Library.MobileKeybinds[id] = MKB
+
+    -- 表示更新（ON = アクセントカラー、OFF = 白）
+    local function updateDisplay()
+        Btn.TextColor3 = MKB.State
+            and Library.AccentColor
+            or  Color3.fromRGB(255, 255, 255)
+    end
+    updateDisplay()
+
+    function MKB:GetState()
+        return MKB.State
+    end
+
+    function MKB:SetState(bool)
+        MKB.State = not not bool
+        updateDisplay()
+        Library:SafeCallback(callback, MKB.State)
+        if MKB.Changed then
+            Library:SafeCallback(MKB.Changed, MKB.State)
+        end
+    end
+
+    function MKB:OnChanged(fn)
+        MKB.Changed = fn
+        fn(MKB.State)
+    end
+
+    function MKB:Destroy()
+        Library.MobileKeybinds[MKB.Id] = nil
+        Outer:Destroy()
+    end
+
+    -- ====== ドラッグ & クリック判定 ======
+    local dragging  = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos  = nil
+    local hasMoved  = false
+
+    Btn.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1
+        or input.UserInputType == Enum.UserInputType.Touch then
+            dragging  = true
+            hasMoved  = false
+            dragStart = input.Position
+            startPos  = Outer.Position
+            dragInput = input
+
+            local conn
+            conn = input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                    conn:Disconnect()
+                    if not hasMoved then
+                        -- クリック → トグル
+                        MKB:SetState(not MKB.State)
+                    else
+                        -- ドラッグ終了 → 位置保存
+                        _mkb_savedPos[id] = {
+                            X = Outer.Position.X.Offset,
+                            Y = Outer.Position.Y.Offset,
+                        }
+                        _mkb_savePositions()
+                    end
+                end
+            end)
+        end
+    end)
+
+    InputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            if delta.Magnitude > 3 then
+                hasMoved = true
+            end
+            if hasMoved then
+                Outer.Position = UDim2.new(
+                    startPos.X.Scale, startPos.X.Offset + delta.X,
+                    startPos.Y.Scale, startPos.Y.Offset + delta.Y
+                )
+            end
+        end
+    end)
+
+    -- アクセントカラー更新時にテキストカラーも追従
+    local _origUpdateColors = Library.UpdateColorsUsingRegistry
+    Library.UpdateColorsUsingRegistry = function(self)
+        _origUpdateColors(self)
+        -- MKB の ON 状態なら AccentColor に再同期
+        for _, mkb in pairs(Library.MobileKeybinds) do
+            if mkb.State then
+                mkb.Btn.TextColor3 = Library.AccentColor
+            end
+        end
+    end
+
+    -- 初期状態を反映
+    if defState then
+        MKB:SetState(true)
+    end
+
+    return MKB
+end
+
 getgenv().Library = Library
 return Library
+
