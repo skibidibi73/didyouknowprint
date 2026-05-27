@@ -39,7 +39,7 @@ local Library = {
     Black = Color3.new(0, 0, 0);
 
     Font = Enum.Font.Code,
-    FontSize = 14, -- 追加: ベーステキストサイズ
+    FontSize = 14,
 
     OpenedFrames = {};
     DependencyBoxes = {};
@@ -52,13 +52,8 @@ local Library = {
     UseBlur = false;
     BlurSize = 15;
 
-    -- Keybind list display mode (settable from main script):
-    --   'All'     : show every KeyPicker that has NoUI = false  (default)
-    --   'Active'  : show only entries whose GetState() == true
-    --   'Toggled' : show entries whose parent Toggle is currently on
     KeybindMode = 'All';
 
-    -- Notification configuration (editable from main script)
     NotifyConfig = {
         Alignment = 'Left';
         BarSide   = 'Left';
@@ -67,7 +62,6 @@ local Library = {
     };
 };
 
--- Separate list for KeyPickers (must NOT be in Library.Registry which expects Instance-based entries)
 Library.KeyPickerList = {};
 
 Library.BlurEffect = Instance.new("BlurEffect")
@@ -85,7 +79,7 @@ function Library:UpdateBlur()
     else
         local tween = TweenService:Create(Library.BlurEffect, TweenInfo.new(0.2, Enum.EasingStyle.Linear), {Size = 0})
         tween:Play()
-    
+
         task.delay(0.2, function()
             if not Library.UseBlur then
                 Library.BlurEffect.Enabled = false
@@ -94,7 +88,6 @@ function Library:UpdateBlur()
     end
 end
 
--- 追加: テキストサイズ変更用メソッド
 function Library:SetFontSize(Size)
     Library.FontSize = Size
     for _, descendant in pairs(ScreenGui:GetDescendants()) do
@@ -153,7 +146,7 @@ local function GetTeamsString()
         TeamList[i] = TeamList[i].Name;
     end;
     table.sort(TeamList, function(str1, str2) return str1 < str2 end);
-    
+
     return TeamList;
 end;
 
@@ -190,7 +183,6 @@ function Library:Create(Class, Properties)
         _Instance[Property] = Value;
     end;
 
-    -- 自動でフォントサイズオフセットを計算して属性に保存
     if _Instance:IsA("TextLabel") or _Instance:IsA("TextBox") or _Instance:IsA("TextButton") then
         if Properties.TextSize then
             _Instance:SetAttribute("FontSizeOffset", Properties.TextSize - Library.FontSize)
@@ -252,11 +244,11 @@ function Library:MakeDraggable(Instance, Cutoff, IsWindow)
             ChangedConn = InputService.InputChanged:Connect(function(Change)
                 if Change.UserInputType == Enum.UserInputType.MouseMovement or Change == Input then
                     local Delta = Change.Position - DragStart
-                    
+
                     if IsWindow and Library.WireframeDrag then
                         if not HasMoved and Delta.Magnitude > 2 then
                             HasMoved = true
-                            
+
                             Wireframe = Library:Create("Frame", {
                                 Size = Instance.Size,
                                 Position = Instance.Position,
@@ -266,7 +258,7 @@ function Library:MakeDraggable(Instance, Cutoff, IsWindow)
                                 ZIndex = 100000,
                                 Parent = ScreenGui
                             })
-                         
+
                             local stroke = Library:Create("UIStroke", {
                                 Color = Library.AccentColor,
                                 Thickness = 1,
@@ -274,7 +266,7 @@ function Library:MakeDraggable(Instance, Cutoff, IsWindow)
                                 Parent = Wireframe
                             })
                         end
-                        
+
                         if HasMoved and Wireframe then
                             Wireframe.Position = UDim2.new(
                                 StartPos.X.Scale, StartPos.X.Offset + Delta.X,
@@ -295,10 +287,10 @@ function Library:MakeDraggable(Instance, Cutoff, IsWindow)
                     Dragging = false
                     ChangedConn:Disconnect()
                     EndedConn:Disconnect()
-                    
+
                     if IsWindow and Library.WireframeDrag and HasMoved and Wireframe then
                         Instance.Position = Wireframe.Position
-                        
+
                         Wireframe:Destroy()
                         Wireframe = nil
                     end
@@ -492,7 +484,7 @@ function Library:Unload()
     if Library.OnUnload then
         Library.OnUnload()
     end
-    
+
     if Library.BlurEffect then
         Library.BlurEffect:Destroy()
     end
@@ -635,7 +627,7 @@ do
             ZIndex = 18;
             Parent = HueSelectorOuter;
         });
-        local HueCursor = Library:Create('Frame', { 
+        local HueCursor = Library:Create('Frame', {
             BackgroundColor3 = Color3.new(1, 1, 1);
             AnchorPoint = Vector2.new(0, 0.5);
             BorderColor3 = Color3.new(0, 0, 0);
@@ -697,8 +689,8 @@ do
             TextColor3 = Library.FontColor
         });
         local TransparencyBoxOuter, TransparencyBoxInner, TransparencyCursor;
-        
-        if Info.Transparency then 
+
+        if Info.Transparency then
             TransparencyBoxOuter = Library:Create('Frame', {
                 BorderColor3 = Color3.new(0, 0, 0);
                 Position = UDim2.fromOffset(4, 251);
@@ -723,7 +715,7 @@ do
                 ZIndex = 20;
                 Parent = TransparencyBoxInner;
             });
-            TransparencyCursor = Library:Create('Frame', { 
+            TransparencyCursor = Library:Create('Frame', {
                 BackgroundColor3 = Color3.new(1, 1, 1);
                 AnchorPoint = Vector2.new(0.5, 0);
                 BorderColor3 = Color3.new(0, 0, 0);
@@ -826,7 +818,7 @@ do
                     Parent = self.Inner;
                     TextXAlignment = Enum.TextXAlignment.Left,
                 });
-                Library:OnHighlight(Button, Button, 
+                Library:OnHighlight(Button, Button,
                     { TextColor3 = 'AccentColor' },
                     { TextColor3 = 'FontColor' }
                 );
@@ -850,7 +842,6 @@ do
                 end
                 ColorPicker:SetValueRGB(Library.ColorClipboard)
             end)
-
 
             ContextMenu:AddOption('Copy HEX', function()
                 pcall(setclipboard, ColorPicker.Value:ToHex())
@@ -1073,15 +1064,13 @@ do
         Library:GiveSignal(InputService.InputBegan:Connect(function(Input)
             if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
                 local AbsPos, AbsSize = PickerFrameOuter.AbsolutePosition, PickerFrameOuter.AbsoluteSize;
-                -- Fix: Use DisplayFrame's actual AbsolutePosition instead of hardcoded -20 offset.
-                -- This prevents the 3rd color picker from conflicting with the Toggle button click area.
+
                 local DFPos = DisplayFrame.AbsolutePosition;
                 local DFSize = DisplayFrame.AbsoluteSize;
 
                 if Mouse.X < AbsPos.X or Mouse.X > AbsPos.X + AbsSize.X
                     or Mouse.Y < DFPos.Y or Mouse.Y > AbsPos.Y + AbsSize.Y then
 
-                    -- Only hide if mouse is NOT over the DisplayFrame itself (which handles its own toggle)
                     if not (Mouse.X >= DFPos.X and Mouse.X <= DFPos.X + DFSize.X
                         and Mouse.Y >= DFPos.Y and Mouse.Y <= DFPos.Y + DFSize.Y) then
                         ColorPicker:Hide();
@@ -1100,20 +1089,15 @@ do
             end
         end))
 
-        -- 追加: 透明度を取得するメソッド
-        -- 使い方: Options['MyColor']:GetTransparency() → 0.0〜1.0の数値を返す
         function ColorPicker:GetTransparency()
             return ColorPicker.Transparency;
         end;
 
-        -- 追加: 透明度変更時のコールバックを設定するメソッド
-        -- 使い方: Options['MyColor']:OnTransparencyChanged(function(alpha) ... end)
         function ColorPicker:OnTransparencyChanged(Func)
             ColorPicker.TransparencyChanged = Func;
             Func(ColorPicker.Transparency);
         end;
 
-        -- 透明度コールバック呼び出しをDisplay()にフック
         local _OrigDisplay = ColorPicker.Display;
         ColorPicker.Display = function(self)
             _OrigDisplay(self);
@@ -1125,16 +1109,11 @@ do
 
         Options[Idx] = ColorPicker;
 
-        -- ToggleRegionの当たり判定を縮める処理
-        -- カラーピッカーはUIListLayoutでToggleLabelの右端に28px幅で並ぶ
-        -- 3つ付けると合計(28+4)*3=96pxほど右端に積まれ、ToggleRegion(幅170)と重なる
-        -- → カラーピッカーが増えるたびにToggleRegionを縮める
         do
             local parentObj = self
             if parentObj.ToggleRegion and parentObj._ColorPickerCount ~= nil then
                 parentObj._ColorPickerCount = parentObj._ColorPickerCount + 1
-                -- 1個目:変化なし(170) / 2個目:138 / 3個目:106
-                -- 各カラーピッカーは28px + UIListLayoutのPadding 4px = 32px
+
                 local baseWidth = 170
                 local shrinkPerPicker = 32
                 local newWidth = baseWidth - math.max(0, parentObj._ColorPickerCount - 1) * shrinkPerPicker
@@ -1145,9 +1124,6 @@ do
         return self;
     end;
 
-    -- 追加: 透明度バー付きカラーピッカーを追加するエイリアス関数
-    -- Info.Transparency に初期透明度を 0.0〜1.0 で指定（省略時は 0 = 不透明）
-    -- 使い方: Toggle:AddColorPickerAlpha('MyColor', { Default = Color3.fromRGB(255,0,0), Title = '色', Transparency = 0 })
     function Funcs:AddColorPickerAlpha(Idx, Info)
         Info = Info or {};
         if Info.Transparency == nil then
@@ -1303,25 +1279,25 @@ do
 
             local displayKey = (KeyPicker.Value == 'None') and '...' or KeyPicker.Value
             ContainerLabel.Text = string.format('[%s] %s (%s)', displayKey, Info.Text, KeyPicker.Mode);
-            -- KeybindMode filter
+
             local kbMode = Library.KeybindMode or 'All'
             if kbMode == 'Active' then
-                -- Show only when the keybind is actively engaged (GetState = true)
+
                 KeybindEntry.Visible = State == true
             elseif kbMode == 'Toggled' then
-                -- Show only when the parent Toggle element is currently on
+
                 local parentOn = false
                 if ParentObj and ParentObj.Type == 'Toggle' then
                     parentOn = ParentObj.Value == true
                 elseif KeyPicker.SyncToggleState and ParentObj then
                     parentOn = ParentObj.Value == true
                 else
-                    -- No toggle parent: fall back to Always-visible in Toggled mode
+
                     parentOn = true
                 end
                 KeybindEntry.Visible = parentOn
             else
-                -- 'All': always visible (original behaviour)
+
                 KeybindEntry.Visible = true
             end
 
@@ -1336,7 +1312,7 @@ do
                     YSize = YSize + 18;
                     local LabelChild = Frame:FindFirstChildOfClass('TextLabel')
                     if LabelChild and (LabelChild.TextBounds.X + 20 > XSize) then
-                        XSize = LabelChild.TextBounds.X + 20 
+                        XSize = LabelChild.TextBounds.X + 20
                     end
                 end;
             end;
@@ -1351,7 +1327,6 @@ do
                     return false;
                 end
 
-                -- チャット入力中などはHold判定を無効化
                 if InputService:GetFocusedTextBox() then
                     return false;
                 end
@@ -1456,7 +1431,7 @@ do
         end);
 
         Library:GiveSignal(InputService.InputBegan:Connect(function(Input, Processed)
-            -- チャット入力中やRoblox UI操作中のキーボード入力を無視する
+
             if Processed and Input.UserInputType == Enum.UserInputType.Keyboard then return end
             if InputService:GetFocusedTextBox() then return end
 
@@ -1466,7 +1441,7 @@ do
 
                     if Key == 'MB1' or Key == 'MB2' or Key == 'Touch' then
                         if Key == 'MB1' and Input.UserInputType == Enum.UserInputType.MouseButton1
-                        or Key == 'MB2' and Input.UserInputType == Enum.UserInputType.MouseButton2 
+                        or Key == 'MB2' and Input.UserInputType == Enum.UserInputType.MouseButton2
                         or Key == 'Touch' and Input.UserInputType == Enum.UserInputType.Touch then
                             KeyPicker.Toggled = not KeyPicker.Toggled
                             KeyPicker:DoClick()
@@ -1743,7 +1718,7 @@ do
 
             Button.Outer.InputBegan:Connect(function(Input)
                 if not ValidateClick(Input) then return end
- 
+
                 if Button.Locked then return end
 
                 if Button.DoubleClick then
@@ -2088,7 +2063,7 @@ do
             Parent = ToggleOuter;
         });
         Toggle.ToggleRegion = ToggleRegion;
-        Toggle._ColorPickerCount = 0; -- カラーピッカーが追加されるたびにカウントアップ
+        Toggle._ColorPickerCount = 0;
         Library:OnHighlight(ToggleRegion, ToggleOuter,
             { BorderColor3 = 'AccentColor' },
             { BorderColor3 = 'Black' }
@@ -2174,8 +2149,6 @@ do
 
         local Groupbox = self;
         local Container = Groupbox.Container;
-        -- 非Compactモードでは名前ラベルを別行で出さず、スライダー自体に埋め込む
-        -- (Compactモードは従来通りスライダー上に "名前: 値" を表示)
 
         local SliderOuter = Library:Create('Frame', {
             BackgroundColor3 = Color3.new(0, 0, 0);
@@ -2245,10 +2218,10 @@ do
         function Slider:Display()
             local Suffix = Info.Suffix or '';
             if Info.Compact then
-                -- Compact: 従来通り "名前: 値suffix"
+
                 DisplayLabel.Text = Info.Text .. ': ' .. Slider.Value .. Suffix
             else
-                -- 非Compact: スライダー中央に "名前:  値suffix%" 形式で表示
+
                 local pct = math.floor(
                     ((Slider.Value - Slider.Min) / (Slider.Max - Slider.Min)) * 100 + 0.5
                 )
@@ -2268,7 +2241,6 @@ do
             if Slider.Rounding == 0 then
                 return math.floor(Value);
             end;
-
 
             return tonumber(string.format('%.' .. Slider.Rounding .. 'f', Value))
         end;
@@ -2291,16 +2263,16 @@ do
         end;
         SliderInner.InputBegan:Connect(function(Input)
             if (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) and not Library:MouseIsOverOpenedFrame() then
-                
+
                 local function UpdateSlider(PosX)
                     local gPos = Fill.AbsolutePosition.X
-                    
+
                     local Diff = PosX - gPos
                     local nX = math.clamp(Diff, 0, Slider.MaxSize)
 
                     local nValue = Slider:GetValueFromXOffset(nX);
                     local OldValue = Slider.Value;
-    
+
                     Slider.Value = nValue;
 
                     Slider:Display();
@@ -2761,7 +2733,7 @@ do
         local Depbox = {
             Dependencies = {};
         };
-        
+
         local Groupbox = self;
         local Container = Groupbox.Container;
 
@@ -2848,17 +2820,15 @@ do
         SortOrder = Enum.SortOrder.LayoutOrder;
         Parent = Library.NotificationArea;
     });
-    -- Apply alignment from NotifyConfig
+
     local function Library_UpdateNotifAlignment()
         local cfg = Library.NotifyConfig
         local area = Library.NotificationArea
         local layout = Library.NotifLayout
 
-        -- Position & size
         area.Position = UDim2.new(0, cfg.PositionX, 0, cfg.PositionY)
         area.Size     = UDim2.new(0, 300, 1, -cfg.PositionY)
 
-        -- Horizontal alignment of the list
         local align = cfg.Alignment or 'Left'
         if align == 'Left' then
             layout.HorizontalAlignment = Enum.HorizontalAlignment.Left
@@ -3022,14 +2992,14 @@ function Library:SetWatermark(Text)
 end;
 function Library:Notify(Text, Time)
     local cfg     = Library.NotifyConfig
-    local barSide = cfg.BarSide   or 'Left'    
-    local align   = cfg.Alignment or 'Left'    
+    local barSide = cfg.BarSide   or 'Left'
+    local align   = cfg.Alignment or 'Left'
 
     local XSize, YSize = Library:GetTextBounds(Text, Library.Font, Library.FontSize)
     YSize = YSize + 7
 
-    local BAR_THIN  = 3   
-    local BAR_THICK = 3   
+    local BAR_THIN  = 3
+    local BAR_THICK = 3
 
     local innerPosX  = (barSide == 'Left')   and 1 or 1
     local innerPosY  = (barSide == 'Top')    and BAR_THICK or 1
@@ -3043,7 +3013,7 @@ function Library:Notify(Text, Time)
     local outerPosX   = 0
     if align == 'Center' then
         outerAnchor = Vector2.new(0.5, 0)
-        outerPosX   = 0  
+        outerPosX   = 0
     elseif align == 'Right' then
         outerAnchor = Vector2.new(1, 0)
         outerPosX   = 0
@@ -3167,7 +3137,7 @@ function Library:CreateWindow(...)
     if InputService.TouchEnabled then
         local vp = workspace.CurrentCamera.ViewportSize
         local maxWidth = math.min(Config.Size.X.Offset, vp.X - 20)
-      
+
         local maxHeight = math.min(Config.Size.Y.Offset, vp.Y - 60)
         Config.Size = UDim2.fromOffset(maxWidth, maxHeight)
     end
@@ -3211,7 +3181,7 @@ function Library:CreateWindow(...)
         Position = UDim2.new(0, 7, 0, 0);
         Size = UDim2.new(0, 0, 0, 25);
         Text = Config.Title or '';
-        RichText = true; 
+        RichText = true;
         TextXAlignment = Enum.TextXAlignment.Left;
         ZIndex = 1;
         Parent = Inner;
@@ -3239,7 +3209,6 @@ function Library:CreateWindow(...)
             MapNameLabel.Text = game.Name or "Unknown Map"
         end
     end)
-
 
     local TabBarOuter = Library:Create('Frame', {
         BackgroundColor3 = Library.BackgroundColor;
@@ -3345,8 +3314,8 @@ function Library:CreateWindow(...)
             BackgroundColor3 = Library.AccentColor;
             BorderSizePixel = 0;
             Position = UDim2.new(0, 0, 0, 0);
-            Size = UDim2.new(1, 0, 0, 2); 
-            Visible = false; 
+            Size = UDim2.new(1, 0, 0, 2);
+            Visible = false;
             ZIndex = 4;
             Parent = TabButton;
         });
@@ -3773,9 +3742,8 @@ function Library:CreateWindow(...)
         end
     end
 
-    -- 変更点: Menu Keybindが文字列でも設定できるように対応
     Library:GiveSignal(InputService.InputBegan:Connect(function(Input, Processed)
-        -- チャット入力中やRoblox UI操作中のキーボード入力を無視する
+
         if Processed and Input.UserInputType == Enum.UserInputType.Keyboard then return end
         if InputService:GetFocusedTextBox() then return end
 
@@ -3818,7 +3786,7 @@ if InputService.TouchEnabled then
     MobileGui.Parent = CoreGui
 
     local BTN_W, BTN_H = 88, 30
-    local BTN_GAP      = 40  
+    local BTN_GAP      = 40
 
     local function CreateMobileButton(name, text, startPos)
         local Outer = Library:Create('Frame', {
@@ -3856,7 +3824,7 @@ if InputService.TouchEnabled then
 
         local GradientOverlay = Library:Create('Frame', {
             Name             = name .. "Gradient",
-            BackgroundColor3 = Color3.new(1, 1, 1), 
+            BackgroundColor3 = Color3.new(1, 1, 1),
             BorderSizePixel  = 0,
             Size             = UDim2.new(1, 0, 1, 0),
             ZIndex           = 303,
@@ -3864,8 +3832,8 @@ if InputService.TouchEnabled then
         })
         Library:Create('UIGradient', {
             Transparency = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.90), 
-                NumberSequenceKeypoint.new(1, 1.0)   
+                NumberSequenceKeypoint.new(0, 0.90),
+                NumberSequenceKeypoint.new(1, 1.0)
             }),
             Rotation = 90,
             Parent = GradientOverlay,
@@ -3955,15 +3923,9 @@ if InputService.TouchEnabled then
     end
 end
 
--- ================================================================
--- MOBILE KEYBIND SYSTEM
--- ================================================================
-
--- モバイルキーバインドの位置保存テーブル
 Library.MobileKeybindPositions = {}
 Library.MobileKeybinds = {}
 
--- 位置保存・読み込み (pcall で保護)
 local function _mkb_savePositions()
     local ok, err = pcall(function()
         if not writefile then return end
@@ -3987,22 +3949,6 @@ end
 
 local _mkb_savedPos = _mkb_loadPositions()
 
---[[
-    Library:CreateMobileKeybind(id, info)
-
-    id   : 一意なID文字列（位置保存のキーにもなる）
-    info : {
-        Text     : string  -- ボタンに表示するラベル
-        Default  : bool    -- 初期状態 (default: false)
-        Callback : function(state: bool) -- トグル時に呼ばれる
-    }
-
-    返り値: MobileKeybind オブジェクト
-        :GetState()    -> bool
-        :SetState(bool)
-        :Destroy()
-        .OnChanged(fn) -> fn(state) を登録
-]]
 function Library:CreateMobileKeybind(id, info)
     assert(type(id) == 'string', 'CreateMobileKeybind: id must be a string')
     info = info or {}
@@ -4011,7 +3957,6 @@ function Library:CreateMobileKeybind(id, info)
     local defState = info.Default  or false
     local callback = info.Callback or function() end
 
-    -- GUI 親を決定
     local guiParent
     local existingMobileGui = CoreGui:FindFirstChild("LinoriaMobileUI")
     if existingMobileGui then
@@ -4025,13 +3970,12 @@ function Library:CreateMobileKeybind(id, info)
         guiParent = mg
     end
 
-    -- 初期位置（保存済みがあればそちらを優先）
     local savedPos = _mkb_savedPos[id]
     local initPos
     if savedPos then
         initPos = UDim2.new(0, savedPos.X, 0, savedPos.Y)
     else
-        -- 既存ボタンが何個あるか数えて縦にずらす
+
         local count = 0
         for _ in pairs(Library.MobileKeybinds) do count = count + 1 end
         initPos = UDim2.new(1, -100, 0, 10 + count * 44)
@@ -4039,7 +3983,6 @@ function Library:CreateMobileKeybind(id, info)
 
     local BTN_W, BTN_H = 88, 30
 
-    -- ====== 既存モバイルボタンと同一デザイン ======
     local Outer = Library:Create('Frame', {
         Name             = "MKB_" .. id .. "_Outer",
         BackgroundColor3 = Library.OutlineColor,
@@ -4103,7 +4046,6 @@ function Library:CreateMobileKeybind(id, info)
         Active                 = true,
     })
 
-    -- ====== オブジェクト ======
     local MKB = {
         Id       = id,
         State    = defState,
@@ -4114,7 +4056,6 @@ function Library:CreateMobileKeybind(id, info)
     }
     Library.MobileKeybinds[id] = MKB
 
-    -- 表示更新（ON = アクセントカラー、OFF = 白）
     local function updateDisplay()
         Btn.TextColor3 = MKB.State
             and Library.AccentColor
@@ -4145,7 +4086,6 @@ function Library:CreateMobileKeybind(id, info)
         Outer:Destroy()
     end
 
-    -- ====== ドラッグ & クリック判定 ======
     local dragging  = false
     local dragInput = nil
     local dragStart = nil
@@ -4167,10 +4107,10 @@ function Library:CreateMobileKeybind(id, info)
                     dragging = false
                     conn:Disconnect()
                     if not hasMoved then
-                        -- クリック → トグル
+
                         MKB:SetState(not MKB.State)
                     else
-                        -- ドラッグ終了 → 位置保存
+
                         _mkb_savedPos[id] = {
                             X = Outer.Position.X.Offset,
                             Y = Outer.Position.Y.Offset,
@@ -4197,11 +4137,10 @@ function Library:CreateMobileKeybind(id, info)
         end
     end)
 
-    -- アクセントカラー更新時にテキストカラーも追従
     local _origUpdateColors = Library.UpdateColorsUsingRegistry
     Library.UpdateColorsUsingRegistry = function(self)
         _origUpdateColors(self)
-        -- MKB の ON 状態なら AccentColor に再同期
+
         for _, mkb in pairs(Library.MobileKeybinds) do
             if mkb.State then
                 mkb.Btn.TextColor3 = Library.AccentColor
@@ -4209,7 +4148,6 @@ function Library:CreateMobileKeybind(id, info)
         end
     end
 
-    -- 初期状態を反映
     if defState then
         MKB:SetState(true)
     end
@@ -4219,4 +4157,3 @@ end
 
 getgenv().Library = Library
 return Library
-
